@@ -1357,9 +1357,9 @@ namespace format {
         static constexpr int ID = N;
         template<template<typename, typename...> typename P, typename OP, typename ...A> using Process = default_process<P, OP, A..., void>;
 
-        template<typename S>
+        template<typename S, bool InternalOverwrite = false, bool NewInternal = false >
         struct Interface {
-            static constexpr bool Internal = true;
+            static constexpr bool Internal = InternalOverwrite ? NewInternal : true;
             using VariableType = std::remove_reference_t<decltype(std::declval<S>().template get<N>())>;
             using FormatType = typename VariableType::FormatType;
             using Type = typename VariableType::Type;
@@ -1411,19 +1411,17 @@ namespace format {
 
             template<typename S1=Stack, std::enable_if_t<S1::IsReadStack, int> = 0>
             void read(Type &value) {
-                typename SubFile<S, T>::template Type<0> v;
-                SubFile<S, T>::reader(processor, stack).read(v);
+                typename SubFile<S, format::Internal<T, false, false>>::template Type<0> v;
+                SubFile<S, format::Internal<T, false, false>>::reader(processor, stack).read(v);
                 value = C(std::move(v));
             }
 
             template<typename S1=Stack, std::enable_if_t<!S1::IsReadStack, int> = 0>
             void write() {
-                SubFile<S, T>::writer(processor, stack).write();
             }
 
             template<typename S1=Stack, std::enable_if_t<!S1::IsReadStack, int> = 0>
             void write(const Type &value) {
-                SubFile<S, T>::writer(processor, stack).write(C(0, value));
             }
 
             stream_type_t<Stack> &processor;
@@ -1580,8 +1578,9 @@ namespace format {
         auto apply(const uint8_t &v) {
             constexpr unsigned S = Start;
             constexpr unsigned E = End;
-            *(reinterpret_cast<uint8_t *>(&value) + (S / 8u)) |= static_cast<unsigned>((v & ((2u << (E - S)) - 1u))
-                    << (S % 8u));
+            constexpr uint8_t Mask = ((2u << (E - S)) - 1u) << (S % 8u);
+            auto *p = reinterpret_cast<uint8_t*>(&value) + (S / 8u);
+            *p = static_cast<uint8_t>(*p & ~Mask) | static_cast<uint8_t>((v << (S % 8u)) & Mask);
             return *this;
         }
 
@@ -1597,8 +1596,9 @@ namespace format {
         auto apply(const uint16_t &v) {
             constexpr unsigned S = Start;
             constexpr unsigned E = End;
-            uint16_t vs = static_cast<uint16_t>((static_cast<uint16_t>(v) & ((2u << (E - S)) - 1u)) << (S % 8u));
-            *(reinterpret_cast<uint16_t *>(reinterpret_cast<uint8_t *>(&value) + (S / 8u))) |= vs;
+            constexpr uint16_t Mask = ((2u << (E - S)) - 1u) << (S % 8u);
+            auto *p = reinterpret_cast<uint16_t*>(reinterpret_cast<uint8_t *>(&value) + (S / 8u));
+            *p = static_cast<uint16_t>(*p & ~Mask) | static_cast<uint16_t>((v << (S % 8u)) & Mask);
             return *this;
         }
 
@@ -1614,8 +1614,9 @@ namespace format {
         auto apply(const uint32_t &v) {
             constexpr unsigned S = Start;
             constexpr unsigned E = End;
-            uint32_t vs = (static_cast<uint32_t>(v) & ((2u << (E - S)) - 1u)) << (S % 8u);
-            *(reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(&value) + (S / 8u))) |= vs;
+            constexpr uint32_t Mask = ((2u << (E - S)) - 1u) << (S % 8u);
+            auto *p = reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t *>(&value) + (S / 8u));
+            *p = static_cast<uint32_t>(*p & ~Mask) | static_cast<uint32_t>((v << (S % 8u)) & Mask);
             return *this;
         }
 
