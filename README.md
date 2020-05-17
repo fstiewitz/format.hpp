@@ -139,6 +139,15 @@ Format::writer(sd).write(t);
 assert(sd.str() == "1");
 ```
 
+##### Packed Values (`Packed<T>`)
+
+This is a helper class used by `Bitfield`. It has one property, `T value` and two methods:
+
+- `apply<Start, End>(v)` inserts `v` into `value` from bits `Start` to `End`.
+- `get<Start, End>()` returns bits `Start` to `End` in `value`.
+
+This class is a wrapper around `(Value >> Offset) & Mask` and `Value = (Value & !Mask) | ((Value << Offset) & Mask)`.
+
 #### Terminated Array (`TerminatedArray<T, int Abort = 0>`, `Ta<T, int Abort = 0>`)
 
 Read entries using format `T` until:

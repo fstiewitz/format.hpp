@@ -272,6 +272,12 @@ int main() {
     {
 #include "packed-test.cpp"
     }
+    TEST("Packed w/ preset");
+    {
+        Packed<uint8_t> v {1};
+        v.apply<0, 7>(2);
+        assert(v.value == 2);
+    }
     TEST("Series of Singles");
     {
         std::stringstream sd{};
@@ -1797,6 +1803,19 @@ int main() {
         sd.str("");
         Format::writer(sd).write();
         assert(sd.str().empty());
+    }
+    TEST("Calls with Get");
+    {
+        std::stringstream sd;
+        sd.str("ab");
+        uint8_t v;
+        int x;
+        using Format = format::Format<Copy<0, Sc<uint8_t>>, Call<&double_value, Get<0>>>;
+        Format::reader(sd).read(v).read(x);
+        assert(x == 'a' * 2);
+        sd.str("");
+        Format::writer(sd).write(v);
+        assert(sd.str() == "a");
     }
     TEST("Map");
     {
