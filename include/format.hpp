@@ -17,6 +17,7 @@
 #ifndef FORMAT_HPP
 #define FORMAT_HPP
 
+#include <any>
 #include <iostream>
 #include <stdexcept>
 #include <functional>
@@ -38,6 +39,8 @@ namespace format {
     struct [[maybe_unused]] get_mismatch : public std::exception {
     };
     struct [[maybe_unused]] no_matching_case : public std::exception {
+        no_matching_case(std::any val): std::exception(), _val(std::move(val)) {}
+        std::any _val;
     };
     struct [[maybe_unused]] bitfield_range_error : public std::exception {
     };
@@ -1216,13 +1219,13 @@ namespace format {
             using CmpType = typename Cmp::template Interface<S>::Type;
 
             template<typename V>
-            void internalRead(const CmpType &, V &) {
-                throw no_matching_case();
+            void internalRead(const CmpType &cmp, V &) {
+                throw no_matching_case(cmp);
             }
 
             template<typename V>
-            void internalWrite(const CmpType &, const V &) {
-                throw no_matching_case();
+            void internalWrite(const CmpType &cmp, const V &) {
+                throw no_matching_case(cmp);
             }
 
             stream_type_t<S> &processor;
@@ -1404,12 +1407,10 @@ namespace format {
             static constexpr bool Internal = InternalOverwrite ? NewInternal : std::conditional_t<Stack::IsReadStack, std::bool_constant<false>, std::bool_constant<true>>::value;
             using Type = std::invoke_result_t<decltype(C), const typename T::template Interface<S>::Type&>;
 
-            template<typename S1=Stack, std::enable_if_t<S1::IsReadStack, int> = 0>
             void read() {
                 SubFile<S, T>::reader(processor, stack).read();
             }
 
-            template<typename S1=Stack, std::enable_if_t<S1::IsReadStack, int> = 0>
             void read(Type &value) {
                 typename SubFile<S, format::Internal<T, false, false>>::template Type<0> v;
                 SubFile<S, format::Internal<T, false, false>>::reader(processor, stack).read(v);
@@ -1514,6 +1515,44 @@ namespace format {
                 if (processor.bad()) {
                     throw binary_write_error();
                 }
+            }
+
+            template<typename S1=Stack, std::enable_if_t<!S1::IsReadStack, int> = 0>
+            void write() {}
+
+            stream_type_t<Stack> &processor;
+            Stack &stack;
+        };
+    };
+
+    template<>
+    struct Scalar<void> {
+        template<template<typename, typename...> typename P, typename OP, typename ...A> using Process = default_process<P, OP, A..., void>;
+
+        template<typename S, bool InternalOverwrite = false, bool NewInternal = false >
+        struct Interface {
+            static constexpr bool Internal = InternalOverwrite ? NewInternal : false;
+            using Type = uint8_t;
+            using Stack = std::remove_reference_t<S>;
+
+            template<typename S1=Stack, std::enable_if_t<S1::IsReadStack, int> = 0>
+            void read() {
+            }
+
+            /*!
+             * \brief Read into variable.
+             * \throws binary_eof()
+             */
+            template<typename S1=Stack, std::enable_if_t<S1::IsReadStack, int> = 0>
+            void read(Type &output) {
+                output = 0;
+            }
+
+            /*!
+             * \brief Write from variable.
+             */
+            template<typename S1=Stack, std::enable_if_t<!S1::IsReadStack, int> = 0>
+            void write(const Type &input) {
             }
 
             template<typename S1=Stack, std::enable_if_t<!S1::IsReadStack, int> = 0>
