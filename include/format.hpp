@@ -26,6 +26,20 @@
 #include <utility>
 #include <variant>
 
+#define FORMAT_HPP_TYPE(x) \
+    template<template<typename, typename...> typename P, typename OP, typename ...A> using Process = default_process<P, OP, A..., x>;
+
+#define FORMAT_HPP_INTERFACE_DECL \
+    template<typename S, bool InternalOverwrite = false, bool NewInternal = false > \
+    struct Interface
+
+#define FORMAT_HPP_INTERFACE \
+    static constexpr bool Internal = InternalOverwrite ? NewInternal : false; \
+    using Stack = std::remove_reference_t<S>; \
+    stream_type_t<Stack> &processor; \
+    Stack &stack;
+
+
 namespace format {
 
     struct binary_eof : public std::exception {
@@ -1475,13 +1489,11 @@ namespace format {
  */
     template<typename T>
     struct Scalar {
-        template<template<typename, typename...> typename P, typename OP, typename ...A> using Process = default_process<P, OP, A..., void>;
+        FORMAT_HPP_TYPE(void)
 
-        template<typename S, bool InternalOverwrite = false, bool NewInternal = false >
-        struct Interface {
-            static constexpr bool Internal = InternalOverwrite ? NewInternal : false;
+        FORMAT_HPP_INTERFACE_DECL {
+            FORMAT_HPP_INTERFACE
             using Type = T;
-            using Stack = std::remove_reference_t<S>;
 
             template<typename S1=Stack, std::enable_if_t<S1::IsReadStack, int> = 0>
             void read() {
@@ -1520,20 +1532,16 @@ namespace format {
             template<typename S1=Stack, std::enable_if_t<!S1::IsReadStack, int> = 0>
             void write() {}
 
-            stream_type_t<Stack> &processor;
-            Stack &stack;
         };
     };
 
     template<>
     struct Scalar<void> {
-        template<template<typename, typename...> typename P, typename OP, typename ...A> using Process = default_process<P, OP, A..., void>;
+        FORMAT_HPP_TYPE(void)
 
-        template<typename S, bool InternalOverwrite = false, bool NewInternal = false >
-        struct Interface {
-            static constexpr bool Internal = InternalOverwrite ? NewInternal : false;
+        FORMAT_HPP_INTERFACE_DECL {
+            FORMAT_HPP_INTERFACE
             using Type = uint8_t;
-            using Stack = std::remove_reference_t<S>;
 
             template<typename S1=Stack, std::enable_if_t<S1::IsReadStack, int> = 0>
             void read() {
@@ -1558,8 +1566,6 @@ namespace format {
             template<typename S1=Stack, std::enable_if_t<!S1::IsReadStack, int> = 0>
             void write() {}
 
-            stream_type_t<Stack> &processor;
-            Stack &stack;
         };
     };
 
@@ -1683,7 +1689,7 @@ namespace format {
 
     template<typename S, typename F, typename ...Rest>
     struct Bitfield {
-        template<template<typename, typename...> typename P, typename OP, typename ...A> using Process = default_process<P, OP, A..., void>;
+        FORMAT_HPP_TYPE(void)
 
         template<typename St, bool InternalOverwrite = false, bool NewInternal = false >
         struct Interface {
@@ -1908,10 +1914,9 @@ namespace format {
  */
     template<int I, typename T>
     struct Offset {
-        template<template<typename, typename...> typename P, typename OP, typename ...A> using Process = default_process<P, OP, A..., T>;
+        FORMAT_HPP_TYPE(T)
 
-        template<typename S, bool InternalOverwrite = false, bool NewInternal = false >
-        struct Interface {
+        FORMAT_HPP_INTERFACE_DECL {
             static constexpr bool Internal = InternalOverwrite ? NewInternal : false;
             using Type = typename T::template Interface<S>::Type;
             using Stack = typename T::template Interface<S>::Stack;
@@ -1938,10 +1943,9 @@ namespace format {
 
     template<auto Acc, typename T>
     struct Accessor {
-        template<template<typename, typename...> typename P, typename OP, typename ...A> using Process = default_process<P, OP, A..., T>;
+        FORMAT_HPP_TYPE(T)
 
-        template<typename S, bool InternalOverwrite = false, bool NewInternal = false >
-        struct Interface {
+        FORMAT_HPP_INTERFACE_DECL {
             static constexpr bool Internal = InternalOverwrite ? NewInternal : false;
             using Type = typename T::template Interface<S>::Type;
             using Stack = typename T::template Interface<S>::Stack;
@@ -2017,13 +2021,11 @@ namespace format {
  */
     template<typename T, int IntegralAbort = 0>
     struct TerminatedArray {
-        template<template<typename, typename...> typename P, typename OP, typename ...A> using Process = default_process<P, OP, A..., T>;
+        FORMAT_HPP_TYPE(T)
 
-        template<typename S, bool InternalOverwrite = false, bool NewInternal = false >
-        struct Interface {
-            static constexpr bool Internal = InternalOverwrite ? NewInternal : false;
+        FORMAT_HPP_INTERFACE_DECL {
+            FORMAT_HPP_INTERFACE
             using Type = std::vector<typename T::template Interface<S>::Type>;
-            using Stack = S;
 
             void read() {
                 typename T::template Interface<S>::Type abort{IntegralAbort};
@@ -2127,8 +2129,6 @@ namespace format {
                 } while (mode != BREAKAFTER);
             }
 
-            stream_type_t<Stack> &processor;
-            Stack &stack;
         };
     };
 
@@ -2141,11 +2141,9 @@ namespace format {
     struct PrefixedTerminatedArray {
         template<template<typename, typename...> typename P, typename OP, typename ...A> using Process = default_process<P, OP, A..., Prefix, T>;
 
-        template<typename S, bool InternalOverwrite = false, bool NewInternal = false >
-        struct Interface {
-            static constexpr bool Internal = InternalOverwrite ? NewInternal : false;
+        FORMAT_HPP_INTERFACE_DECL {
+            FORMAT_HPP_INTERFACE
             using Type = std::vector<typename T::template Interface<S>::Type>;
-            using Stack = S;
 
             /*!
              * \brief Read elements and their prefixes until prefix matches null element.
@@ -2246,8 +2244,6 @@ namespace format {
                 SubFile<S, Prefix>::writer(processor, stack).write(typename Prefix::template Interface<S>::Type{});
             }
 
-            stream_type_t<Stack> &processor;
-            Stack &stack;
         };
     };
 
@@ -2262,13 +2258,11 @@ namespace format {
  */
     template<typename T, int Len, typename std::enable_if_t<std::greater<>()(Len, 0), int> = 0>
     struct StaticArray {
-        template<template<typename, typename...> typename P, typename OP, typename ...A> using Process = default_process<P, OP, A..., T>;
+        FORMAT_HPP_TYPE(T)
 
-        template<typename S, bool InternalOverwrite = false, bool NewInternal = false >
-        struct Interface {
-            static constexpr bool Internal = InternalOverwrite ? NewInternal : false;
+        FORMAT_HPP_INTERFACE_DECL {
+            FORMAT_HPP_INTERFACE
             using Type = std::array<typename T::template Interface<S>::Type, Len>;
-            using Stack = S;
 
             void read(Type &vec) {
                 for (size_t i = 0u; i < static_cast<size_t>(Len); ++i) {
@@ -2288,8 +2282,6 @@ namespace format {
                 }
             }
 
-            stream_type_t<Stack> &processor;
-            Stack &stack;
         };
     };
 
@@ -2303,11 +2295,9 @@ namespace format {
     struct FixedArray {
         template<template<typename, typename...> typename P, typename OP, typename ...A> using Process = default_process<P, OP, A..., LengthVariable, T>;
 
-        template<typename S, bool InternalOverwrite = false, bool NewInternal = false >
-        struct Interface {
-            static constexpr bool Internal = InternalOverwrite ? NewInternal : false;
+        FORMAT_HPP_INTERFACE_DECL {
+            FORMAT_HPP_INTERFACE
             using Type = std::vector<typename T::template Interface<S>::Type>;
-            using Stack = S;
 
             void read(Type &vec) {
                 auto l = stack.template get<LengthVariable::ID>().val;
@@ -2333,20 +2323,16 @@ namespace format {
                 }
             }
 
-            stream_type_t<Stack> &processor;
-            Stack &stack;
         };
     };
 
     template<typename T>
     struct FixedArray<T, void> {
-        template<template<typename, typename...> typename P, typename OP, typename ...A> using Process = default_process<P, OP, A..., T>;
+        FORMAT_HPP_TYPE(T)
 
-        template<typename S, bool InternalOverwrite = false, bool NewInternal = false >
-        struct Interface {
-            static constexpr bool Internal = InternalOverwrite ? NewInternal : false;
+        FORMAT_HPP_INTERFACE_DECL {
+            FORMAT_HPP_INTERFACE
             using Type = std::vector<typename T::template Interface<S>::Type>;
-            using Stack = S;
 
             /*!
              * \brief Read into std::vector<T>.
@@ -2369,8 +2355,6 @@ namespace format {
                 }
             }
 
-            stream_type_t<Stack> &processor;
-            Stack &stack;
         };
     };
 
@@ -2383,11 +2367,9 @@ namespace format {
     struct PrefixedArray {
         template<template<typename, typename...> typename P, typename OP, typename ...A> using Process = default_process<P, OP, A..., Prefix, T>;
 
-        template<typename S, bool InternalOverwrite = false, bool NewInternal = false >
-        struct Interface {
-            static constexpr bool Internal = InternalOverwrite ? NewInternal : false;
+        FORMAT_HPP_INTERFACE_DECL {
+            FORMAT_HPP_INTERFACE
             using Type = std::vector<typename T::template Interface<S>::Type>;
-            using Stack = S;
 
             /*!
              * \brief Read into std::vector
@@ -2434,8 +2416,6 @@ namespace format {
                 SubFile<S, Prefix, FixedArray<T, void>>::writer(processor, stack).write(prefix).write(v);
             }
 
-            stream_type_t<Stack> &processor;
-            Stack &stack;
         };
     };
 
@@ -2446,13 +2426,11 @@ namespace format {
  */
     template<int Len, typename std::enable_if_t<std::greater<>()(Len, 0), int> I>
     struct StaticArray<char, Len, I> {
-        template<template<typename, typename...> typename P, typename OP, typename ...A> using Process = default_process<P, OP, A..., void>;
+        FORMAT_HPP_TYPE(void)
 
-        template<typename S, bool InternalOverwrite = false, bool NewInternal = false >
-        struct Interface {
-            static constexpr bool Internal = InternalOverwrite ? NewInternal : false;
+        FORMAT_HPP_INTERFACE_DECL {
+            FORMAT_HPP_INTERFACE
             using Type = std::string;
-            using Stack = S;
 
             void read(Type &out) {
                 out.resize(Len);
@@ -2469,8 +2447,6 @@ namespace format {
                 }
             }
 
-            stream_type_t<Stack> &processor;
-            Stack &stack;
         };
     };
 
@@ -2479,13 +2455,11 @@ namespace format {
  */
     template<>
     struct FixedArray<char, void> {
-        template<template<typename, typename...> typename P, typename OP, typename ...A> using Process = default_process<P, OP, A..., void>;
+        FORMAT_HPP_TYPE(void)
 
-        template<typename S, bool InternalOverwrite = false, bool NewInternal = false >
-        struct Interface {
-            static constexpr bool Internal = InternalOverwrite ? NewInternal : false;
+        FORMAT_HPP_INTERFACE_DECL {
+            FORMAT_HPP_INTERFACE
             using Type = std::string;
-            using Stack = S;
 
             template<typename L>
             void read(Type &out, L len) {
@@ -2507,8 +2481,6 @@ namespace format {
                 }
             }
 
-            stream_type_t<Stack> &processor;
-            Stack &stack;
         };
     };
 
@@ -2517,13 +2489,11 @@ namespace format {
  */
     template<typename Prefix>
     struct PrefixedArray<Prefix, char> {
-        template<template<typename, typename...> typename P, typename OP, typename ...A> using Process = default_process<P, OP, A..., Prefix>;
+        FORMAT_HPP_TYPE(Prefix)
 
-        template<typename S, bool InternalOverwrite = false, bool NewInternal = false >
-        struct Interface {
-            static constexpr bool Internal = InternalOverwrite ? NewInternal : false;
+        FORMAT_HPP_INTERFACE_DECL {
+            FORMAT_HPP_INTERFACE
             using Type = std::string;
-            using Stack = S;
 
             void read(Type &out) {
                 typename Prefix::template Interface<S>::Type prefix;
@@ -2562,8 +2532,6 @@ namespace format {
                 SubFile<S, Prefix, FixedArray<char, void>>::writer(processor, stack).write(prefix).write(v);
             }
 
-            stream_type_t<Stack> &processor;
-            Stack &stack;
         };
     };
 
@@ -2572,13 +2540,11 @@ namespace format {
  */
     template<>
     struct TerminatedArray<char> {
-        template<template<typename, typename...> typename P, typename OP, typename ...A> using Process = default_process<P, OP, A..., void>;
+        FORMAT_HPP_TYPE(void)
 
-        template<typename S, bool InternalOverwrite = false, bool NewInternal = false >
-        struct Interface {
-            static constexpr bool Internal = InternalOverwrite ? NewInternal : false;
+        FORMAT_HPP_INTERFACE_DECL {
+            FORMAT_HPP_INTERFACE
             using Type = std::string;
-            using Stack = S;
 
             /*!
              * \brief Read string until del or EOF.
@@ -2634,8 +2600,6 @@ namespace format {
                 } while (true);
             }
 
-            stream_type_t<Stack> &processor;
-            Stack &stack;
         };
     };
 
